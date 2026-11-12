@@ -26,7 +26,7 @@ export default function CerrarSesion() {
   return (
     <p className="dev-pie">
       Sesión iniciada como <b>{nombre}</b> ·{' '}
-      <button type="button" onClick={salir} style={{ background: 'none', border: 'none', padding: '10px 4px', color: 'var(--verde)', fontWeight: 800, fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
+      <button type="button" onClick={salir} style={{ background: 'none', border: 'none', padding: '10px 4px', color: 'var(--tinta)', fontWeight: 800, fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'var(--verde)', textDecorationThickness: 2 }}>
         Cerrar sesión
       </button>
     </p>

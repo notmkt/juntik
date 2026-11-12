@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Logo from '@/components/Logo'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -69,7 +70,7 @@ export default function Acceso({ modo }) {
   return (
     <main className="acceso">
       <div className="acceso-marca">
-        <Link href="/" className="acceso-logo">juntik</Link>
+        <Link href="/" className="acceso-logo"><Logo height={36} /></Link>
         <h1>{esRegistro ? 'Creá tu cuenta' : '¡Hola de nuevo!'}</h1>
         <p className="acceso-sub">
           {esRegistro

@@ -1,0 +1,241 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import Logo, { Simbolo } from '@/components/Logo'
+import BarraNav from '@/components/BarraNav'
+
+const DEPORTES = ['Todos', 'Fútbol 5', 'Fútbol 7', 'Pádel', 'Tenis', 'Básquet', 'Vóley']
+
+// Partidos abiertos: datos de ejemplo hasta que exista la tabla de partidos (Comunidad)
+const PARTIDOS = [
+  { id: 'p1', deporte: 'Fútbol 5', faltan: 2, cuando: 'Hoy 21:00', cancha: 'Complejo La Redonda', barrio: 'Palermo', nivel: 'Nivel intermedio', jugadores: ['LM', 'FR', 'NA'], anotados: 8, cupo: 10 },
+  { id: 'p2', deporte: 'Pádel', faltan: 1, cuando: 'Mañana 19:30', cancha: 'Pádel Club Norte', barrio: 'Belgrano', nivel: '6ta categoría', jugadores: ['SP', 'JG', 'MV'], anotados: 3, cupo: 4 },
+  { id: 'p3', deporte: 'Básquet', faltan: 3, cuando: 'Sáb 11:00', cancha: 'Polideportivo Plaza Verde', barrio: 'Villa Crespo', nivel: 'Todos los niveles', jugadores: ['TC', 'AB', 'RO'], anotados: 7, cupo: 10 },
+  { id: 'p4', deporte: 'Tenis', faltan: 1, cuando: 'Dom 10:00', cancha: 'Club Tenis Parque', barrio: 'Colegiales', nivel: 'Nivel principiante', jugadores: ['RD'], anotados: 1, cupo: 2 },
+]
+
+const FAVORITOS = 'juntik:favoritos'
+const lista = new Intl.ListFormat('es', { style: 'long', type: 'conjunction' })
+const pesos = new Intl.NumberFormat('es-AR')
+const sinAcentos = (t = '') => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+function urlFoto(path) {
+  if (!path) return null
+  if (path.startsWith('http')) return path
+  return supabase.storage.from('fotos').getPublicUrl(path).data.publicUrl
+}
+
+const ICONO = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }
+
+export default function Explorar() {
+  const router = useRouter()
+  const [canchas, setCanchas] = useState(null) // null = cargando
+  const [error, setError] = useState(false)
+  const [deporte, setDeporte] = useState('Todos')
+  const [texto, setTexto] = useState('')
+  const [favoritos, setFavoritos] = useState([])
+
+  async function cargar() {
+    setError(false)
+    setCanchas(null)
+    const { data, error } = await supabase.from('canchas_resumen').select('*').order('nombre')
+    if (error) {
+      setError(true)
+      setCanchas([])
+    } else {
+      setCanchas(data)
+    }
+  }
+
+  useEffect(() => {
+    // El app es solo para usuarios con sesión
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) router.replace('/app')
+      else cargar()
+    })
+    try {
+      setFavoritos(JSON.parse(localStorage.getItem(FAVORITOS)) || [])
+    } catch {}
+  }, [router])
+
+  function alternarFavorito(id) {
+    setFavoritos((actual) => {
+      const nuevo = actual.includes(id) ? actual.filter((f) => f !== id) : [...actual, id]
+      try {
+        localStorage.setItem(FAVORITOS, JSON.stringify(nuevo))
+      } catch {}
+      return nuevo
+    })
+  }
+
+  const busca = sinAcentos(texto.trim())
+  const coincide = (deportes, ...campos) =>
+    (deporte === 'Todos' || deportes.includes(deporte)) &&
+    (!busca || sinAcentos([...campos, ...deportes].join(' ')).includes(busca))
+
+  const partidos = useMemo(
+    () => PARTIDOS.filter((p) => coincide([p.deporte], p.cancha, p.barrio)),
+    [deporte, busca] // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const visibles = useMemo(
+    () => (canchas || []).filter((c) => coincide(c.deportes || [], c.nombre, c.barrio)),
+    [canchas, deporte, busca] // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const filtrando = deporte !== 'Todos' || busca !== ''
+  const limpiar = () => {
+    setDeporte('Todos')
+    setTexto('')
+  }
+
+  return (
+    <>
+      <main className="ex">
+        <div className="ex-fila ex-cabecera">
+          <Link href="/app/explorar" className="ex-logo"><Logo height={30} /></Link>
+          <Link href="/app/notificaciones" className="ex-redondo" aria-label="Notificaciones">
+            <svg width="20" height="20" {...ICONO}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
+            <span className="ex-punto" />
+          </Link>
+        </div>
+
+        <div className="ex-fila ex-busqueda">
+          <label className="ex-buscador">
+            <svg width="20" height="20" {...ICONO} strokeWidth={2.4}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <input
+              type="search"
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder="¿A qué querés jugar?"
+              aria-label="Buscar por cancha, barrio o deporte"
+              enterKeyHint="search"
+            />
+          </label>
+          <Link href="/app/buscar" className="ex-redondo" aria-label="Filtros">
+            <svg width="20" height="20" {...ICONO}><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" /><circle cx="15" cy="6" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="18" r="2" /></svg>
+          </Link>
+        </div>
+
+        <div className="ex-chips" role="group" aria-label="Filtrar por deporte">
+          {DEPORTES.map((d) => (
+            <button key={d} type="button" className="ex-chip" aria-pressed={d === deporte} onClick={() => setDeporte(d)}>
+              {d}
+            </button>
+          ))}
+        </div>
+
+        {partidos.length > 0 && (
+          <section className="ex-seccion">
+            <div className="ex-fila ex-titulo">
+              <h2>Partidos abiertos cerca tuyo</h2>
+              <Link href="/app/comunidad">Ver todos</Link>
+            </div>
+            <div className="ex-carrusel">
+              {partidos.map((p) => (
+                <article key={p.id} className="ex-partido">
+                  <div className="ex-partido-arriba">
+                    <span className="ex-etiqueta">{p.deporte} · {p.faltan === 1 ? 'Falta 1' : `Faltan ${p.faltan}`}</span>
+                    <span className="ex-cuando">{p.cuando}</span>
+                  </div>
+                  <div>
+                    <div className="ex-partido-nombre">{p.cancha}</div>
+                    <div className="ex-sub">{p.barrio} · {p.nivel}</div>
+                  </div>
+                  <div className="ex-partido-gente">
+                    <div className="ex-avatares" aria-hidden="true">
+                      {p.jugadores.map((j) => <span key={j}>{j}</span>)}
+                      {p.anotados > p.jugadores.length && <span>+{p.anotados - p.jugadores.length}</span>}
+                    </div>
+                    <span>{p.anotados} de {p.cupo} jugadores</span>
+                  </div>
+                  <Link href="/app/comunidad" className="boton boton-verde">Sumarme</Link>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="ex-seccion ex-fila">
+          <div className="ex-titulo">
+            <h2>{deporte === 'Todos' ? 'Canchas en Buenos Aires' : `Canchas de ${deporte.toLowerCase()}`}</h2>
+          </div>
+
+          {canchas === null && (
+            <div aria-busy="true" aria-label="Cargando canchas">
+              <div className="ex-esqueleto" />
+              <div className="ex-esqueleto linea" />
+              <div className="ex-esqueleto linea" style={{ width: '40%' }} />
+            </div>
+          )}
+
+          {error && (
+            <div className="ex-vacio" role="alert">
+              <b>No pudimos cargar las canchas</b>
+              Revisá tu conexión y probá de nuevo.
+              <br />
+              <button type="button" onClick={cargar}>Reintentar</button>
+            </div>
+          )}
+
+          {canchas !== null && !error && visibles.length === 0 && (
+            <div className="ex-vacio">
+              <b>No encontramos canchas</b>
+              {filtrando ? 'Probá con otro deporte o barrio.' : 'Todavía no hay canchas cargadas.'}
+              {filtrando && (
+                <>
+                  <br />
+                  <button type="button" onClick={limpiar}>Ver todas las canchas</button>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="ex-lista">
+            {visibles.map((c, i) => {
+              const foto = urlFoto(c.foto_portada)
+              const fav = favoritos.includes(c.id)
+              return (
+                <div key={c.id} className="ex-cancha">
+                  <Link href={`/app/cancha/${c.id}`}>
+                    <span className={`ex-foto${!foto && i % 3 === 1 ? ' alt' : ''}`}>
+                      {foto ? (
+                        <img src={foto} alt="" loading="lazy" />
+                      ) : (
+                        <>
+                          <Simbolo size={190} color={i % 3 === 1 ? '#101828' : i % 3 === 2 ? '#C8F36A' : '#20D68A'} />
+                          {c.superficie && <span className="ex-superficie">{c.superficie}</span>}
+                        </>
+                      )}
+                      <span className="ex-insignia">{c.techada ? 'Techada' : 'Al aire libre'}</span>
+                    </span>
+                    <span className="ex-cancha-datos">
+                      <span className="ex-cancha-linea">
+                        <span className="ex-cancha-nombre">{c.nombre}</span>
+                        {c.nota ? (
+                          <span className="ex-nota" aria-label={`${Number(c.nota).toFixed(1).replace('.', ',')} de 5, ${c.total_resenas} reseñas`}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                            {Number(c.nota).toFixed(1).replace('.', ',')}
+                          </span>
+                        ) : (
+                          <span className="ex-nota nueva">Nueva</span>
+                        )}
+                      </span>
+                      <span className="ex-sub">{c.barrio} · {lista.format(c.deportes || [])}</span>
+                      <span className="ex-precio"><b>$ {pesos.format(c.precio_hora)}</b> / hora</span>
+                    </span>
+                  </Link>
+                  <button type="button" className="ex-fav" aria-pressed={fav} aria-label={fav ? `Quitar ${c.nombre} de favoritos` : `Guardar ${c.nombre} en favoritos`} onClick={() => alternarFavorito(c.id)}>
+                    <svg width="20" height="20" {...ICONO}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      </main>
+      <BarraNav activa="explorar" mapa />
+    </>
+  )
+}
