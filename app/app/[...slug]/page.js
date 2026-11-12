@@ -5,7 +5,7 @@ import CerrarSesion from '@/components/CerrarSesion'
 export default function AppEnDesarrollo() {
   return (
     <>
-      <EnDesarrollo volverA="/app" textoVolver="Volver al app" />
+      <EnDesarrollo />
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 16, textAlign: 'center' }}>
         <CerrarSesion />
       </div>

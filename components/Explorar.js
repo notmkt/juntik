@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import Logo, { Simbolo } from '@/components/Logo'
+import Logo from '@/components/Logo'
 import BarraNav from '@/components/BarraNav'
-
-const DEPORTES = ['Todos', 'Fútbol 5', 'Fútbol 7', 'Pádel', 'Tenis', 'Básquet', 'Vóley']
+import Chips from '@/components/Chips'
+import Estrellas from '@/components/Estrellas'
+import Portada from '@/components/Portada'
+import { useCanchas, deportesDe, precio, sinAcentos } from '@/lib/canchas'
 
 // Partidos abiertos: datos de ejemplo hasta que exista la tabla de partidos (Comunidad)
 const PARTIDOS = [
@@ -18,48 +18,20 @@ const PARTIDOS = [
 ]
 
 const FAVORITOS = 'juntik:favoritos'
-const lista = new Intl.ListFormat('es', { style: 'long', type: 'conjunction' })
-const pesos = new Intl.NumberFormat('es-AR')
-const sinAcentos = (t = '') => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-
-function urlFoto(path) {
-  if (!path) return null
-  if (path.startsWith('http')) return path
-  return supabase.storage.from('fotos').getPublicUrl(path).data.publicUrl
-}
 
 const ICONO = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }
 
 export default function Explorar() {
-  const router = useRouter()
-  const [canchas, setCanchas] = useState(null) // null = cargando
-  const [error, setError] = useState(false)
+  const { canchas, error, cargar } = useCanchas()
   const [deporte, setDeporte] = useState('Todos')
   const [texto, setTexto] = useState('')
   const [favoritos, setFavoritos] = useState([])
 
-  async function cargar() {
-    setError(false)
-    setCanchas(null)
-    const { data, error } = await supabase.from('canchas_resumen').select('*').order('nombre')
-    if (error) {
-      setError(true)
-      setCanchas([])
-    } else {
-      setCanchas(data)
-    }
-  }
-
   useEffect(() => {
-    // El app es solo para usuarios con sesión
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) router.replace('/app')
-      else cargar()
-    })
     try {
       setFavoritos(JSON.parse(localStorage.getItem(FAVORITOS)) || [])
     } catch {}
-  }, [router])
+  }, [])
 
   function alternarFavorito(id) {
     setFavoritos((actual) => {
@@ -118,13 +90,7 @@ export default function Explorar() {
           </Link>
         </div>
 
-        <div className="ex-chips" role="group" aria-label="Filtrar por deporte">
-          {DEPORTES.map((d) => (
-            <button key={d} type="button" className="ex-chip" aria-pressed={d === deporte} onClick={() => setDeporte(d)}>
-              {d}
-            </button>
-          ))}
-        </div>
+        <Chips deporte={deporte} onChange={setDeporte} />
 
         {partidos.length > 0 && (
           <section className="ex-seccion">
@@ -193,37 +159,19 @@ export default function Explorar() {
           )}
 
           <div className="ex-lista">
-            {visibles.map((c, i) => {
-              const foto = urlFoto(c.foto_portada)
+            {visibles.map((c) => {
               const fav = favoritos.includes(c.id)
               return (
                 <div key={c.id} className="ex-cancha">
                   <Link href={`/app/cancha/${c.id}`}>
-                    <span className={`ex-foto${!foto && i % 3 === 1 ? ' alt' : ''}`}>
-                      {foto ? (
-                        <img src={foto} alt="" loading="lazy" />
-                      ) : (
-                        <>
-                          <Simbolo size={190} color={i % 3 === 1 ? '#101828' : i % 3 === 2 ? '#C8F36A' : '#20D68A'} />
-                          {c.superficie && <span className="ex-superficie">{c.superficie}</span>}
-                        </>
-                      )}
-                      <span className="ex-insignia">{c.techada ? 'Techada' : 'Al aire libre'}</span>
-                    </span>
+                    <Portada cancha={c} className="ex-foto">
+                      {c.superficie && <span className="ex-superficie">{c.superficie}</span>}
+                    </Portada>
                     <span className="ex-cancha-datos">
-                      <span className="ex-cancha-linea">
-                        <span className="ex-cancha-nombre">{c.nombre}</span>
-                        {c.nota ? (
-                          <span className="ex-nota" aria-label={`${Number(c.nota).toFixed(1).replace('.', ',')} de 5, ${c.total_resenas} reseñas`}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
-                            {Number(c.nota).toFixed(1).replace('.', ',')}
-                          </span>
-                        ) : (
-                          <span className="ex-nota nueva">Nueva</span>
-                        )}
-                      </span>
-                      <span className="ex-sub">{c.barrio} · {lista.format(c.deportes || [])}</span>
-                      <span className="ex-precio"><b>$ {pesos.format(c.precio_hora)}</b> / hora</span>
+                      <span className="ex-cancha-nombre">{c.nombre}</span>
+                      <Estrellas nota={c.nota} total={c.total_resenas} />
+                      <span className="ex-sub">{c.barrio} · {deportesDe(c)}</span>
+                      <span className="ex-precio"><b>{precio(c.precio_hora)}</b> / hora</span>
                     </span>
                   </Link>
                   <button type="button" className="ex-fav" aria-pressed={fav} aria-label={fav ? `Quitar ${c.nombre} de favoritos` : `Guardar ${c.nombre} en favoritos`} onClick={() => alternarFavorito(c.id)}>
