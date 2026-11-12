@@ -1,0 +1,174 @@
+:root {
+  --verde: #1A7F4B;
+  --verde-oscuro: #135E38;
+  --tinta: #16181D;
+  --gris: #5F6473;
+  --borde: #E4E5E9;
+  --fondo: #FFFFFF;
+  --fondo-suave: #F4F5F7;
+  --afuera: #ECEEE8;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--verde); }
+a:hover { color: var(--verde-oscuro); }
+button { font-family: inherit; }
+
+/* Marco del app: siempre ancho de celular */
+.app-afuera {
+  min-height: 100dvh;
+  background: var(--afuera);
+  display: flex;
+  justify-content: center;
+}
+.app-marco {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100dvh;
+  background: var(--fondo);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 640px) {
+  .app-marco { box-shadow: 0 0 40px rgba(22, 24, 29, 0.12); }
+}
+
+/* Página en desarrollo */
+.dev {
+  flex: 1;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 48px 24px;
+  text-align: center;
+}
+.app-marco .dev { min-height: 100dvh; }
+.dev-logo {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--tinta);
+  text-decoration: none;
+}
+.dev-icono {
+  width: 72px;
+  height: 72px;
+  border-radius: 36px;
+  background: var(--fondo-suave);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--verde);
+}
+.dev h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.dev p {
+  margin: 0;
+  max-width: 360px;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--gris);
+}
+.dev-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.boton-verde { background: var(--verde); color: #FFFFFF; }
+.boton-verde:hover { background: var(--verde-oscuro); color: #FFFFFF; }
+.boton-borde { border: 1px solid var(--tinta); color: var(--tinta); }
+.boton-borde:hover { background: var(--fondo-suave); color: var(--tinta); }
+.dev-pie {
+  font-size: 13px;
+  color: var(--gris);
+  margin-top: 12px;
+}
+
+/* Acceso: login y registro */
+.acceso {
+  flex: 1;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 40px 24px 32px;
+  gap: 28px;
+}
+.acceso-marca { display: flex; flex-direction: column; gap: 10px; }
+.acceso-logo {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--tinta);
+  text-decoration: none;
+}
+.acceso h1 { margin: 12px 0 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+.acceso-sub { margin: 0; font-size: 16px; line-height: 1.5; color: var(--gris); }
+.form { display: flex; flex-direction: column; gap: 16px; }
+.campo { display: flex; flex-direction: column; gap: 6px; }
+.campo label { font-size: 14px; font-weight: 700; }
+.campo input {
+  height: 52px;
+  border: 1px solid #C4C7CF;
+  border-radius: 14px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--tinta);
+  background: #FFFFFF;
+}
+.campo input:focus { outline: 2px solid var(--verde); outline-offset: 1px; border-color: var(--verde); }
+.campo-ayuda { font-size: 13px; color: var(--gris); }
+.form .boton { width: 100%; min-height: 54px; font-size: 16px; border: none; cursor: pointer; }
+.form .boton[disabled] { opacity: 0.6; cursor: default; }
+.aviso {
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.aviso-error { background: #FDECEC; color: #9B1C1C; }
+.aviso-ok { background: #E7F5EC; color: #135E38; }
+.acceso-cambio {
+  text-align: center;
+  font-size: 15px;
+  color: var(--gris);
+}
+.acceso-cambio a { font-weight: 800; }
+.acceso-pie {
+  margin-top: auto;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gris);
+}
