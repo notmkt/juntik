@@ -3,14 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import 'leaflet/dist/leaflet.css'
+import { capaBase } from '@/lib/mapa'
 import BarraNav from '@/components/BarraNav'
 import Chips from '@/components/Chips'
 import Estrellas from '@/components/Estrellas'
 import Portada from '@/components/Portada'
 import { useCanchas, deportesDe, horarioDe, precio, distanciaKm, textoDistancia } from '@/lib/canchas'
 
-// Clave de CARTO Basemaps: se configura en Vercel como variable NEXT_PUBLIC_CARTO_KEY (no va en el repo)
-const CARTO_KEY = process.env.NEXT_PUBLIC_CARTO_KEY
 const CENTRO = [-34.585, -58.435] // Buenos Aires (zona norte de CABA)
 const ICONO = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }
 
@@ -43,11 +42,7 @@ export default function Mapa() {
       leaflet.current = L
       const m = L.map(caja.current, { zoomControl: false, attributionControl: true }).setView(CENTRO, 13)
       m.attributionControl.setPrefix(false)
-      L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png${CARTO_KEY ? `?key=${CARTO_KEY}` : ''}`, {
-        maxZoom: 19,
-        subdomains: 'abcd',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      }).addTo(m)
+      capaBase(L).addTo(m)
       capaPins.current = L.layerGroup().addTo(m)
       m.on('click', () => setElegida(null))
       mapa.current = m

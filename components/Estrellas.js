@@ -1,7 +1,7 @@
 const ESTRELLA = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'
 
 // Calificación en estrellas (0 a 5, con medias). Sin reseñas: estrellas vacías + "Sin reseñas".
-export default function Estrellas({ nota, total = 0, size = 15 }) {
+export default function Estrellas({ nota, total = 0, size = 15, soloEstrellas = false }) {
   const valor = Number(nota) || 0
   const texto = valor.toFixed(1).replace('.', ',')
   return (
@@ -17,7 +17,7 @@ export default function Estrellas({ nota, total = 0, size = 15 }) {
           )
         })}
       </span>
-      <span aria-hidden="true">{total ? <><b>{texto}</b> ({total})</> : 'Sin reseñas'}</span>
+      {!soloEstrellas && <span aria-hidden="true">{total ? <><b>{texto}</b> ({total})</> : 'Sin reseñas'}</span>}
     </span>
   )
 }

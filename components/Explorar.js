@@ -7,7 +7,7 @@ import BarraNav from '@/components/BarraNav'
 import Chips from '@/components/Chips'
 import Estrellas from '@/components/Estrellas'
 import Portada from '@/components/Portada'
-import { useCanchas, deportesDe, precio, sinAcentos } from '@/lib/canchas'
+import { useCanchas, useUsuario, useNoLeidas, useFavoritos, deportesDe, precio, sinAcentos } from '@/lib/canchas'
 
 // Partidos abiertos: datos de ejemplo hasta que exista la tabla de partidos (Comunidad)
 const PARTIDOS = [
@@ -17,7 +17,7 @@ const PARTIDOS = [
   { id: 'p4', deporte: 'Tenis', faltan: 1, cuando: 'Dom 10:00', cancha: 'Club Tenis Parque', barrio: 'Colegiales', nivel: 'Nivel principiante', jugadores: ['RD'], anotados: 1, cupo: 2 },
 ]
 
-const FAVORITOS = 'juntik:favoritos'
+const PREGUNTAS = ['¿A qué querés jugar?', '¿Dónde querés jugar?', '¿En qué cancha querés jugar?']
 
 const ICONO = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }
 
@@ -25,23 +25,15 @@ export default function Explorar() {
   const { canchas, error, cargar } = useCanchas()
   const [deporte, setDeporte] = useState('Todos')
   const [texto, setTexto] = useState('')
-  const [favoritos, setFavoritos] = useState([])
+  const [favoritos, alternarFavorito] = useFavoritos()
+  const noLeidas = useNoLeidas(useUsuario())
+  const [pregunta, setPregunta] = useState(0)
 
+  // La pregunta del buscador va rotando
   useEffect(() => {
-    try {
-      setFavoritos(JSON.parse(localStorage.getItem(FAVORITOS)) || [])
-    } catch {}
+    const t = setInterval(() => setPregunta((n) => (n + 1) % PREGUNTAS.length), 3000)
+    return () => clearInterval(t)
   }, [])
-
-  function alternarFavorito(id) {
-    setFavoritos((actual) => {
-      const nuevo = actual.includes(id) ? actual.filter((f) => f !== id) : [...actual, id]
-      try {
-        localStorage.setItem(FAVORITOS, JSON.stringify(nuevo))
-      } catch {}
-      return nuevo
-    })
-  }
 
   const busca = sinAcentos(texto.trim())
   const coincide = (deportes, ...campos) =>
@@ -67,27 +59,26 @@ export default function Explorar() {
       <main className="ex">
         <div className="ex-fila ex-cabecera">
           <Link href="/app/explorar" className="ex-logo"><Logo height={30} /></Link>
-          <Link href="/app/notificaciones" className="ex-redondo" aria-label="Notificaciones">
+          <Link href="/app/notificaciones" className="ex-redondo" aria-label={noLeidas > 0 ? `Notificaciones, ${noLeidas} sin leer` : 'Notificaciones'}>
             <svg width="20" height="20" {...ICONO}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
-            <span className="ex-punto" />
+            {noLeidas > 0 && <span className="ex-punto" />}
           </Link>
         </div>
 
         <div className="ex-fila ex-busqueda">
           <label className="ex-buscador">
             <svg width="20" height="20" {...ICONO} strokeWidth={2.4}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-            <input
-              type="search"
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              placeholder="¿A qué querés jugar?"
-              aria-label="Buscar por cancha, barrio o deporte"
-              enterKeyHint="search"
-            />
+            <span className="ex-buscador-campo">
+              <input
+                type="search"
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                aria-label="Buscar por cancha, barrio o deporte"
+                enterKeyHint="search"
+              />
+              {texto === '' && <span key={pregunta} className="ex-pregunta" aria-hidden="true">{PREGUNTAS[pregunta]}</span>}
+            </span>
           </label>
-          <Link href="/app/buscar" className="ex-redondo" aria-label="Filtros">
-            <svg width="20" height="20" {...ICONO}><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" /><circle cx="15" cy="6" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="18" r="2" /></svg>
-          </Link>
         </div>
 
         <Chips deporte={deporte} onChange={setDeporte} />
