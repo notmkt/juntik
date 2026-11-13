@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import BarraNav from '@/components/BarraNav'
 import { comoLlegar } from '@/lib/mapa'
-import { useUsuario, precio, deISO, partesFecha, horaTexto, EQUIPOS } from '@/lib/canchas'
+import { useUsuario, precio, deISO, partesFecha, horaTexto, cuandoEs } from '@/lib/canchas'
 
 const ESTRELLA = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'
 
@@ -25,15 +25,16 @@ export default function Reservas() {
   const [notas, setNotas] = useState({}) // cancha_id → estrellas que dio el usuario
   const [error, setError] = useState(false)
   const [pestana, setPestana] = useState('proximas')
-  const [abierta, setAbierta] = useState(null) // id con el detalle abierto
+  const [invitaciones, setInvitaciones] = useState([])
   const [porCancelar, setPorCancelar] = useState(null) // id pidiendo confirmación
   const [ocupado, setOcupado] = useState(false)
   const [aviso, setAviso] = useState('')
 
   async function cargar() {
     setError(false)
-    const [r, c] = await Promise.all([
-      supabase.from('reservas').select('*, canchas(id, nombre, barrio, direccion, lat, lng, politica_cancelacion)').order('fecha').order('hora_inicio'),
+    const [r, inv, c] = await Promise.all([
+      supabase.from('reservas').select('*, canchas(id, nombre, barrio, direccion, lat, lng, politica_cancelacion)').eq('user_id', usuario.id).eq('tipo', 'reserva').order('fecha').order('hora_inicio'),
+      supabase.from('invitaciones').select('id, partido_id, partidos(deporte, fecha, hora_inicio, canchas(nombre))').eq('invitado_id', usuario.id).eq('estado', 'pendiente'),
       supabase.from('calificaciones').select('cancha_id, general').eq('user_id', usuario.id),
     ])
     if (r.error) {
@@ -42,6 +43,7 @@ export default function Reservas() {
       return
     }
     setNotas(Object.fromEntries((c.data || []).map((x) => [x.cancha_id, x.general])))
+    setInvitaciones(inv.data || [])
     setReservas(r.data)
   }
 
@@ -77,7 +79,7 @@ export default function Reservas() {
     cargar()
   }
 
-  const lista = pestana === 'proximas' ? proximas : pasadas
+  const lista = pestana === 'proximas' ? proximas : pestana === 'pasadas' ? pasadas : invitaciones
 
   function Fecha({ r, destacada }) {
     const p = partesFecha(r.inicio)
@@ -100,6 +102,9 @@ export default function Reservas() {
             Próximas{proximas.length > 0 && ` (${proximas.length})`}
           </button>
           <button type="button" role="tab" aria-selected={pestana === 'pasadas'} onClick={() => setPestana('pasadas')}>Pasadas</button>
+          <button type="button" role="tab" aria-selected={pestana === 'invitaciones'} onClick={() => setPestana('invitaciones')}>
+            Invitaciones{invitaciones.length > 0 && ` (${invitaciones.length})`}
+          </button>
         </div>
 
         {aviso && <div className="aviso aviso-ok" role="status">{aviso}</div>}
@@ -132,8 +137,8 @@ export default function Reservas() {
 
         {reservas !== null && !error && lista.length === 0 && (
           <div className="ex-vacio">
-            <b>{pestana === 'proximas' ? 'No tenés reservas próximas' : 'Todavía no jugaste ningún partido'}</b>
-            {pestana === 'proximas' ? 'Encontrá una cancha y reservá tu turno.' : 'Acá vas a ver los turnos que ya pasaron y los cancelados.'}
+            <b>{pestana === 'proximas' ? 'No tenés reservas próximas' : pestana === 'pasadas' ? 'Todavía no jugaste ningún partido' : 'No tenés invitaciones pendientes'}</b>
+            {pestana === 'proximas' ? 'Encontrá una cancha y reservá tu turno.' : pestana === 'pasadas' ? 'Acá vas a ver los turnos que ya pasaron y los cancelados.' : 'Cuando alguien te invite a un partido lo vas a ver acá.'}
             <br />
             <Link href="/app/explorar" className="boton boton-verde">Explorar canchas</Link>
           </div>
@@ -141,7 +146,6 @@ export default function Reservas() {
 
         <div className="res-lista">
           {pestana === 'proximas' && proximas.map((r, i) => {
-            const equipos = Object.entries(r.equipamiento || {})
             return (
               <article key={r.id} className="res-tarjeta">
                 <div className="res-arriba">
@@ -159,21 +163,12 @@ export default function Reservas() {
                   </span>
                   <b>{precio(r.total)}</b>
                 </div>
-                <div className="res-botones">
-                  <button type="button" aria-expanded={abierta === r.id} onClick={() => setAbierta(abierta === r.id ? null : r.id)}>
-                    {abierta === r.id ? 'Ocultar' : 'Ver detalle'}
-                  </button>
+                <div className="res-botones dos">
+                  <Link href={`/app/reserva/${r.id}`}>Ver reserva y QR</Link>
                   <a href={comoLlegar(r.canchas)} target="_blank" rel="noopener noreferrer">Cómo llegar</a>
+                  <Link href={`/app/cancha/${r.cancha_id}/reservar?cambiar=${r.id}`}>Cambiar fecha</Link>
                   <button type="button" onClick={() => setPorCancelar(r.id)}>Cancelar</button>
                 </div>
-                {abierta === r.id && (
-                  <dl className="ficha-datos res-detalle">
-                    <div><dt>Código de reserva</dt><dd className="res-codigo">JTK-{r.id.slice(0, 6).toUpperCase()}</dd></div>
-                    <div><dt>Dirección</dt><dd>{r.canchas.direccion || r.canchas.barrio}</dd></div>
-                    <div><dt>Equipamiento</dt><dd>{equipos.length ? equipos.map(([e, n]) => `${n} × ${EQUIPOS[e]?.nombre || e}`).join(', ') : 'Sin equipamiento'}</dd></div>
-                    {r.canchas.politica_cancelacion && <div><dt>Cancelación</dt><dd>{r.canchas.politica_cancelacion}</dd></div>}
-                  </dl>
-                )}
                 {porCancelar === r.id && (
                   <div className="res-confirmar" role="alertdialog" aria-label="Confirmar cancelación">
                     <b>¿Cancelar esta reserva?</b>
@@ -187,6 +182,14 @@ export default function Reservas() {
               </article>
             )
           })}
+
+          {pestana === 'invitaciones' && invitaciones.map((i) => (
+            <Link key={i.id} href={`/app/partido/${i.partido_id}`} className="res-tarjeta enlace">
+              <b>Partido de {i.partidos?.deporte}</b>
+              <span className="ex-sub">{i.partidos ? cuandoEs(i.partidos.fecha, i.partidos.hora_inicio) : ''} · {i.partidos?.canchas?.nombre}</span>
+              <span className="ex-sub">Tocá para ver el partido y responder</span>
+            </Link>
+          ))}
 
           {pestana === 'pasadas' && pasadas.map((r) => {
             const cancelada = r.estado === 'cancelada'

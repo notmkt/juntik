@@ -11,7 +11,7 @@ import EnDesarrollo from '@/components/EnDesarrollo'
 import { comoLlegar } from '@/lib/mapa'
 import {
   useUsuario, useCancha, useFavoritos, urlFoto, precio, horarioDe, proximosDias, turnosDelDia, turnosOcupados,
-  fechaISO, fechaCorta, horaTexto, EQUIPOS,
+  fechaISO, fechaCorta, horaTexto, EQUIPOS, promosDe, textoPromo, primerNombre,
 } from '@/lib/canchas'
 
 const ICONO = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }
@@ -43,6 +43,10 @@ export default function Cancha({ id }) {
   const [favoritos, alternarFavorito] = useFavoritos()
   const [fotos, setFotos] = useState([])
   const [resenas, setResenas] = useState([])
+  const [promos, setPromos] = useState([])
+  const [dueno, setDueno] = useState(null)
+  const [consultas, setConsultas] = useState([])
+  const [mensaje, setMensaje] = useState('')
   const [todas, setTodas] = useState(false)
   const [disponibilidad, setDisponibilidad] = useState(null) // { fecha, turnos }
   const [fotoActual, setFotoActual] = useState(1)
@@ -60,7 +64,7 @@ export default function Cancha({ id }) {
     setFotos(data || [])
   }
   async function cargarResenas() {
-    const { data } = await supabase.from('calificaciones').select('*, profiles(full_name)').eq('cancha_id', id).order('created_at', { ascending: false })
+    const { data } = await supabase.from('calificaciones').select('*, profiles(full_name), resena_respuestas(texto)').eq('cancha_id', id).order('created_at', { ascending: false })
     setResenas(data || [])
     const mia = (data || []).find((r) => r.user_id === usuario.id)
     if (mia) setForm({ general: mia.general, piso: mia.piso, iluminacion: mia.iluminacion, vestuarios: mia.vestuarios, atencion: mia.atencion, puntualidad: mia.puntualidad, comentario: mia.comentario || '' })
@@ -71,6 +75,29 @@ export default function Cancha({ id }) {
     cargarFotos()
     cargarResenas()
   }, [id, usuario]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Promociones, dueño y mis mensajes
+  async function cargarConsultas() {
+    const { data } = await supabase.from('consultas').select('*').eq('cancha_id', id).eq('user_id', usuario.id).order('created_at')
+    setConsultas(data || [])
+  }
+  useEffect(() => {
+    if (!cancha) return
+    promosDe(cancha.id).then(setPromos)
+    if (cancha.owner_id) {
+      supabase.from('profiles').select('id, full_name').eq('id', cancha.owner_id).maybeSingle().then(({ data }) => setDueno(data))
+      cargarConsultas()
+    }
+  }, [cancha]) // eslint-disable-line react-hooks/exhaustive-deps
+  async function enviarMensaje(e) {
+    e.preventDefault()
+    const t = mensaje.trim()
+    if (!t) return
+    const { error } = await supabase.from('consultas').insert({ cancha_id: cancha.id, texto: t })
+    setAviso(error ? 'No pudimos enviar el mensaje.' : 'Mensaje enviado al dueño.')
+    if (!error) setMensaje('')
+    cargarConsultas()
+  }
 
   // Disponibilidad: el primer día (desde hoy) con turnos por delante
   useEffect(() => {
@@ -217,10 +244,12 @@ export default function Cancha({ id }) {
         </div>
 
         <section className="ficha-seccion ficha-cabecera">
+          {cancha.destacada && <span className="ex-etiqueta" style={{ alignSelf: 'flex-start' }}>Cancha destacada</span>}
           <h1>{cancha.nombre}</h1>
           <span className="ficha-lugar">{cancha.barrio}, Ciudad de Buenos Aires</span>
           <a href="#resenas" className="ficha-nota"><Estrellas nota={cancha.nota} total={cancha.total_resenas} /></a>
           {cancha.descripcion && <p>{cancha.descripcion}</p>}
+          {promos.map((p) => <span key={p.id} className="promo"><b>{p.nombre}</b> · {textoPromo(p)}</span>)}
           <div className="ficha-subir">
             <input ref={archivo} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={subirFoto} />
             <button type="button" className="ficha-enlace" onClick={() => archivo.current.click()} disabled={subiendo}>
@@ -317,6 +346,7 @@ export default function Cancha({ id }) {
                   <Estrellas nota={r.general} total={1} size={13} soloEstrellas />
                 </div>
                 {r.comentario && <p>{r.comentario}</p>}
+                {r.resena_respuestas && <p className="texto respuesta">Respuesta del dueño: {r.resena_respuestas.texto}</p>}
               </article>
             )
           })}
@@ -357,6 +387,13 @@ export default function Cancha({ id }) {
           </section>
         )}
 
+        {cancha.reglas && (
+          <section className="ficha-seccion">
+            <h2>Llegada y reglas</h2>
+            <p className="texto">{cancha.reglas}</p>
+          </section>
+        )}
+
         <section className="ficha-seccion">
           <h2>Ubicación</h2>
           <MiniMapa lat={cancha.lat} lng={cancha.lng} nombre={cancha.nombre} />
@@ -364,6 +401,29 @@ export default function Cancha({ id }) {
             <span>{cancha.direccion || `${cancha.barrio}, Ciudad de Buenos Aires`}</span>
             <a href={comoLlegar(cancha)} target="_blank" rel="noopener noreferrer" className="ficha-enlace">Cómo llegar</a>
           </div>
+        </section>
+        <section className="ficha-seccion">
+          <h2>Conocé al dueño</h2>
+          {dueno ? (
+            <>
+              <div className="perfil-cab">
+                <span className="avatar grande">{primerNombre(dueno.full_name).slice(0, 2).toUpperCase()}</span>
+                <div><b>{primerNombre(dueno.full_name)}</b><span className="ex-sub">Dueño de {cancha.nombre}</span></div>
+              </div>
+              {consultas.map((q) => (
+                <div key={q.id} className="bloque">
+                  <p className="texto">Vos: {q.texto}</p>
+                  {q.respuesta ? <p className="texto respuesta">{primerNombre(dueno.full_name)}: {q.respuesta}</p> : <span className="ex-sub">Todavía sin respuesta</span>}
+                </div>
+              ))}
+              {dueno.id !== usuario.id && (
+                <form className="fila" onSubmit={enviarMensaje}>
+                  <input value={mensaje} onChange={(e) => setMensaje(e.target.value)} maxLength={500} placeholder="Escribile un mensaje" aria-label="Mensaje para el dueño" />
+                  <button type="submit" className="mini">Enviar</button>
+                </form>
+              )}
+            </>
+          ) : <span className="ex-sub">Cancha de demostración de Juntik: no tiene un dueño con cuenta para escribirle.</span>}
         </section>
       </main>
 

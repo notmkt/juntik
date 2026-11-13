@@ -7,15 +7,9 @@ import BarraNav from '@/components/BarraNav'
 import Chips from '@/components/Chips'
 import Estrellas from '@/components/Estrellas'
 import Portada from '@/components/Portada'
-import { useCanchas, useUsuario, useNoLeidas, useFavoritos, deportesDe, precio, sinAcentos } from '@/lib/canchas'
-
-// Partidos abiertos: datos de ejemplo hasta que exista la tabla de partidos (Comunidad)
-const PARTIDOS = [
-  { id: 'p1', deporte: 'Fútbol 5', faltan: 2, cuando: 'Hoy 21:00', cancha: 'Complejo La Redonda', barrio: 'Palermo', nivel: 'Nivel intermedio', jugadores: ['LM', 'FR', 'NA'], anotados: 8, cupo: 10 },
-  { id: 'p2', deporte: 'Pádel', faltan: 1, cuando: 'Mañana 19:30', cancha: 'Pádel Club Norte', barrio: 'Belgrano', nivel: '6ta categoría', jugadores: ['SP', 'JG', 'MV'], anotados: 3, cupo: 4 },
-  { id: 'p3', deporte: 'Básquet', faltan: 3, cuando: 'Sáb 11:00', cancha: 'Polideportivo Plaza Verde', barrio: 'Villa Crespo', nivel: 'Todos los niveles', jugadores: ['TC', 'AB', 'RO'], anotados: 7, cupo: 10 },
-  { id: 'p4', deporte: 'Tenis', faltan: 1, cuando: 'Dom 10:00', cancha: 'Club Tenis Parque', barrio: 'Colegiales', nivel: 'Nivel principiante', jugadores: ['RD'], anotados: 1, cupo: 2 },
-]
+import { TarjetaPartido, PARTIDO_CAMPOS } from '@/components/Comunidad'
+import { supabase } from '@/lib/supabase'
+import { useCanchas, useUsuario, useNoLeidas, useFavoritos, deportesDe, precio, sinAcentos, fechaISO } from '@/lib/canchas'
 
 const PREGUNTAS = ['¿A qué querés jugar?', '¿Dónde querés jugar?', '¿En qué cancha querés jugar?']
 
@@ -28,6 +22,13 @@ export default function Explorar() {
   const [favoritos, alternarFavorito] = useFavoritos()
   const noLeidas = useNoLeidas(useUsuario())
   const [pregunta, setPregunta] = useState(0)
+  const [abiertos, setAbiertos] = useState([])
+
+  // Partidos abiertos de los próximos días
+  useEffect(() => {
+    supabase.from('partidos').select(PARTIDO_CAMPOS).gte('fecha', fechaISO(new Date())).order('fecha').order('hora_inicio').limit(8)
+      .then(({ data }) => setAbiertos(data || []))
+  }, [])
 
   // La pregunta del buscador va rotando
   useEffect(() => {
@@ -41,8 +42,8 @@ export default function Explorar() {
     (!busca || sinAcentos([...campos, ...deportes].join(' ')).includes(busca))
 
   const partidos = useMemo(
-    () => PARTIDOS.filter((p) => coincide([p.deporte], p.cancha, p.barrio)),
-    [deporte, busca] // eslint-disable-line react-hooks/exhaustive-deps
+    () => abiertos.filter((p) => coincide([p.deporte], p.canchas?.nombre, p.canchas?.barrio)),
+    [abiertos, deporte, busca] // eslint-disable-line react-hooks/exhaustive-deps
   )
   const visibles = useMemo(
     () => (canchas || []).filter((c) => coincide(c.deportes || [], c.nombre, c.barrio)),
@@ -90,26 +91,7 @@ export default function Explorar() {
               <Link href="/app/comunidad">Ver todos</Link>
             </div>
             <div className="ex-carrusel">
-              {partidos.map((p) => (
-                <article key={p.id} className="ex-partido">
-                  <div className="ex-partido-arriba">
-                    <span className="ex-etiqueta">{p.deporte} · {p.faltan === 1 ? 'Falta 1' : `Faltan ${p.faltan}`}</span>
-                    <span className="ex-cuando">{p.cuando}</span>
-                  </div>
-                  <div>
-                    <div className="ex-partido-nombre">{p.cancha}</div>
-                    <div className="ex-sub">{p.barrio} · {p.nivel}</div>
-                  </div>
-                  <div className="ex-partido-gente">
-                    <div className="ex-avatares" aria-hidden="true">
-                      {p.jugadores.map((j) => <span key={j}>{j}</span>)}
-                      {p.anotados > p.jugadores.length && <span>+{p.anotados - p.jugadores.length}</span>}
-                    </div>
-                    <span>{p.anotados} de {p.cupo} jugadores</span>
-                  </div>
-                  <Link href="/app/comunidad" className="boton boton-verde">Sumarme</Link>
-                </article>
-              ))}
+              {partidos.map((p) => <TarjetaPartido key={p.id} p={p} />)}
             </div>
           </section>
         )}
